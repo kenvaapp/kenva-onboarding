@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connect Kenva</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; line-height: 1.6; }
+    button { font-size: 16px; padding: 10px 18px; border-radius: 8px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .step { margin: 24px 0; padding: 16px; border: 1px solid #eee; border-radius: 8px; }
+    .done { color: #0a7d3c; }
+    #status { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Connect Kenva</h1>
+  <p>Kenva is your personal CRM, living inside your AI assistant and stored in your own Google Drive. Two quick steps:</p>
+
+  <div class="step" id="step1">
+    <strong>Step 1 — Sign in with Google</strong>
+    <p id="signin-state">Not signed in.</p>
+    <button id="signin-btn">Sign in with Google</button>
+  </div>
+
+  <div class="step" id="step2" style="opacity:0.5">
+    <strong>Step 2 — Connect your Google Drive</strong>
+    <p>Grant Kenva permission to store contacts in your Drive (only files Kenva creates — never the rest of your Drive).</p>
+    <button id="connect-btn" disabled>Connect Drive</button>
+  </div>
+
+  <p id="status"></p>
+
+  <!-- Supabase JS from CDN (login leg). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    // These two are injected at build/deploy time. For local dev you paste them
+    // into a small config; see the README. They are PUBLIC values (safe in the page).
+    const SUPABASE_URL = window.KENVA_CONFIG?.SUPABASE_URL || "REPLACE_SUPABASE_URL";
+    const SUPABASE_ANON_KEY = window.KENVA_CONFIG?.SUPABASE_ANON_KEY || "REPLACE_SUPABASE_ANON_KEY";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const signinBtn = document.getElementById("signin-btn");
+    const connectBtn = document.getElementById("connect-btn");
+    const signinState = document.getElementById("signin-state");
+    const step2 = document.getElementById("step2");
+    const status = document.getElementById("status");
+
+    async function refreshUi() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        signinState.textContent = "Signed in as " + (session.user.email || "your Google account") + ".";
+        signinState.className = "done";
+        signinBtn.disabled = true;
+        connectBtn.disabled = false;
+        step2.style.opacity = "1";
+      } else {
+        signinState.textContent = "Not signed in.";
+        signinBtn.disabled = false;
+        connectBtn.disabled = true;
+        step2.style.opacity = "0.5";
+      }
+    }
+
+    signinBtn.onclick = async () => {
+      status.textContent = "Redirecting to Google…";
+      // redirectTo brings the user back here after login.
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.origin + window.location.pathname },
+      });
+    };
+
+    connectBtn.onclick = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { status.textContent = "Please sign in first."; return; }
+      status.textContent = "Opening Google Drive permission…";
+      // Hand the login token to our server, which redirects to Google for drive.file.
+      window.location.href = "/oauth/start?token=" + encodeURIComponent(session.access_token);
+    };
+
+    // On load (and after the login redirect returns here), update the UI.
+    refreshUi();
+    supabase.auth.onAuthStateChange(() => refreshUi());
+  </script>
+</body>
+</html>

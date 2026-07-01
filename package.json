@@ -1,0 +1,14 @@
+{
+  "name": "kenva-onboarding",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler pages dev public --compatibility-date=2026-06-01",
+    "deploy": "wrangler pages deploy public"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260701.1",
+    "typescript": "^6.0.3",
+    "wrangler": "^4.0.0"
+  }
+}
